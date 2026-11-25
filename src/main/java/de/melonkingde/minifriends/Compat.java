@@ -11,6 +11,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.Mannequin;
 
 import java.lang.reflect.Field;
@@ -84,17 +85,21 @@ final class Compat {
 
 	@SuppressWarnings("unchecked")
 	static EntityType<Mannequin> mannequinType() {
+		return (EntityType<Mannequin>) entityType("mannequin");
+	}
+
+	@SuppressWarnings("unchecked")
+	static EntityType<ArmorStand> armorStandType() {
+		return (EntityType<ArmorStand>) entityType("armor_stand");
+	}
+
+	private static EntityType<?> entityType(String path) {
 		for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
-			if (BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath().equals("mannequin")) {
-				return (EntityType<Mannequin>) type;
+			if (BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath().equals(path)) {
+				return type;
 			}
 		}
-		StringBuilder names = new StringBuilder();
-		for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
-			names.append(BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath()).append(' ');
-		}
-		MinifriendsClient.LOGGER.error("Mannequin entity type not found. Registered types: {}", names);
-		throw new IllegalStateException("Mannequin entity type not found");
+		throw new IllegalStateException("Entity type not found: " + path);
 	}
 
 	// ---- mannequin profile -----------------------------------------------------------
@@ -129,18 +134,33 @@ final class Compat {
 
 	// ---- shared setup for friend entities ----------------------------------------------
 
-	private static final double SCALE = 0.35D;
-
-	static void configure(Mannequin e, String name, boolean showNametag) {
+	static void configure(Mannequin e, String name, double scale) {
 		setProfile(e, ResolvableProfile.createUnresolved(name));
-		e.setCustomName(Component.literal(name));
-		e.setCustomNameVisible(showNametag);
-		AttributeInstance scale = e.getAttribute(Attributes.SCALE);
-		if (scale != null) {
-			scale.setBaseValue(SCALE);
+		// the name tag is drawn by a separate invisible entity (see NameStand), so hide everything on the mannequin itself
+		e.setCustomNameVisible(false);
+		callBoolean(e, "setHideDescription", true);
+		AttributeInstance scaleAttribute = e.getAttribute(Attributes.SCALE);
+		if (scaleAttribute != null) {
+			scaleAttribute.setBaseValue(scale);
 		}
 		e.noPhysics = true;
 		e.setNoGravity(true);
+	}
+
+	private static void callBoolean(Entity e, String name, boolean value) {
+		try {
+			for (Class<?> c = e.getClass(); c != null; c = c.getSuperclass()) {
+				for (Method m : c.getDeclaredMethods()) {
+					if (m.getName().equals(name) && m.getParameterCount() == 1 && m.getParameterTypes()[0] == boolean.class) {
+						m.setAccessible(true);
+						m.invoke(e, value);
+						return;
+					}
+				}
+			}
+		} catch (ReflectiveOperationException | RuntimeException ex) {
+			MinifriendsClient.LOGGER.error("Could not call {}", name, ex);
+		}
 	}
 
 	/** A plain vanilla Mannequin (no subclass), created through its own factory. */

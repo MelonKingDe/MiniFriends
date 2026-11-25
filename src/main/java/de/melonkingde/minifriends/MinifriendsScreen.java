@@ -1,5 +1,6 @@
 package de.melonkingde.minifriends;
 
+import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.CycleButton;
 import net.minecraft.client.gui.components.EditBox;
@@ -25,7 +26,7 @@ public class MinifriendsScreen extends Screen {
 	protected void init() {
 		int cx = this.width / 2;
 		int rows = this.config.friends.size();
-		int totalHeight = 14 + 26 + rows * ROW_HEIGHT + 28 + 24;
+		int totalHeight = 14 + 26 + 26 + rows * ROW_HEIGHT + 28 + 24;
 		int y = Math.max(10, this.height / 2 - totalHeight / 2);
 
 		this.addRenderableWidget(
@@ -39,6 +40,9 @@ public class MinifriendsScreen extends Screen {
 				(button, value) -> this.config.enabled = value
 			)
 		);
+		y += 24;
+
+		this.addRenderableWidget(new ScaleSlider(cx - 100, y, 200, 20, this.config));
 		y += 28;
 
 		int start = cx - 139;
@@ -91,5 +95,32 @@ public class MinifriendsScreen extends Screen {
 		}
 		MinifriendsConfig.save();
 		Compat.openScreen(this.minecraft, this.parent);
+	}
+
+	/** Slider for the friend size, 15% to 100% of a normal player in 5% steps. */
+	private static final class ScaleSlider extends AbstractSliderButton {
+		private final MinifriendsConfig config;
+
+		ScaleSlider(int x, int y, int width, int height, MinifriendsConfig config) {
+			super(x, y, width, height, Component.empty(),
+				(config.scale - MinifriendsConfig.MIN_SCALE) / (MinifriendsConfig.MAX_SCALE - MinifriendsConfig.MIN_SCALE));
+			this.config = config;
+			this.updateMessage();
+		}
+
+		private static float toScale(double sliderValue) {
+			double raw = MinifriendsConfig.MIN_SCALE + sliderValue * (MinifriendsConfig.MAX_SCALE - MinifriendsConfig.MIN_SCALE);
+			return (float) (Math.round(raw * 20.0D) / 20.0D);
+		}
+
+		@Override
+		protected void updateMessage() {
+			this.setMessage(Component.literal("Size: " + Math.round(toScale(this.value) * 100.0F) + "%"));
+		}
+
+		@Override
+		protected void applyValue() {
+			this.config.scale = Math.max(MinifriendsConfig.MIN_SCALE, Math.min(MinifriendsConfig.MAX_SCALE, toScale(this.value)));
+		}
 	}
 }

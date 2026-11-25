@@ -12,10 +12,10 @@ import net.minecraft.world.level.Level;
 public class MiniFriend extends Mannequin {
 	private final FollowLogic logic;
 
-	public MiniFriend(Level level, String name, boolean showNametag, FollowLogic logic) {
+	public MiniFriend(Level level, String name, double scale, FollowLogic logic) {
 		super(Compat.mannequinType(), level);
 		this.logic = logic;
-		Compat.configure(this, name, showNametag);
+		Compat.configure(this, name, scale);
 	}
 
 	@Override

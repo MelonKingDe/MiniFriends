@@ -9,16 +9,18 @@ import net.minecraft.world.phys.Vec3;
 public final class FollowLogic {
 	private final int slot;
 	private final int total;
+	private final double scale;
 	private boolean moving = false;
 
-	public FollowLogic(int slot, int total) {
+	public FollowLogic(int slot, int total, double scale) {
 		this.slot = slot;
 		this.total = total;
+		this.scale = scale;
 	}
 
 	public void teleport(LivingEntity e, LocalPlayer player) {
 		double angle = Math.PI * 2.0D * this.slot / Math.max(1, this.total);
-		e.setPos(player.getX() + Math.cos(angle) * 1.5D, player.getY(), player.getZ() + Math.sin(angle) * 1.5D);
+		e.setPos(player.getX() + Math.cos(angle) * (1.2D + this.scale), player.getY(), player.getZ() + Math.sin(angle) * (1.2D + this.scale));
 		Compat.setOldPosAndRot(e);
 		this.moving = false;
 	}
@@ -34,7 +36,7 @@ public final class FollowLogic {
 		}
 
 		double dist = Math.sqrt(distSq);
-		double keep = 1.5D + 0.45D * this.slot;
+		double keep = 1.2D + this.scale + this.slot * (0.3D + 0.6D * this.scale);
 
 		if (!this.moving && dist > keep + 1.5D) {
 			this.moving = true;

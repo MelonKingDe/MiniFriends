@@ -14,12 +14,16 @@ import java.util.List;
 
 public final class MinifriendsConfig {
 	public static final int MAX_FRIENDS = 5;
+	public static final float MIN_SCALE = 0.15F;
+	public static final float MAX_SCALE = 1.0F;
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 	private static MinifriendsConfig instance = new MinifriendsConfig();
 	private static int version = 0;
 
 	public boolean enabled = true;
+	/** Size of the friends relative to a normal player (1.0 = same size). */
+	public float scale = 0.35F;
 	public List<Friend> friends = new ArrayList<>();
 
 	public static final class Friend {
@@ -49,6 +53,7 @@ public final class MinifriendsConfig {
 					if (loaded.friends == null) {
 						loaded.friends = new ArrayList<>();
 					}
+					loaded.scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, loaded.scale));
 					instance = loaded;
 				}
 			} catch (IOException | RuntimeException e) {

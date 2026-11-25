@@ -5,7 +5,7 @@ Client-side Fabric mod for Minecraft 26.2. Mini versions of players follow you a
 ## Usage
 
 - Type `/minifriends` in chat to open the settings screen.
-- Enter a player name per row (the skin is loaded from that name), toggle the nametag on/off, add up to 5 friends.
+- Enter a player name per row (the skin is loaded from that name), toggle the nametag on/off, add up to 5 friends, and change their size with the slider.
 - Settings are saved to `config/minifriends.json`.
 
 ## Build
