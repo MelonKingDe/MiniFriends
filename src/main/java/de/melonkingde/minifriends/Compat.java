@@ -2,6 +2,11 @@ package de.melonkingde.minifriends;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.item.component.ResolvableProfile;
+import net.minecraft.world.level.Level;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.world.entity.Entity;
@@ -122,6 +127,86 @@ final class Compat {
 		}
 	}
 
+	// ---- shared setup for friend entities ----------------------------------------------
+
+	private static final double SCALE = 0.35D;
+
+	static void configure(Mannequin e, String name, boolean showNametag) {
+		setProfile(e, ResolvableProfile.createUnresolved(name));
+		e.setCustomName(Component.literal(name));
+		e.setCustomNameVisible(showNametag);
+		AttributeInstance scale = e.getAttribute(Attributes.SCALE);
+		if (scale != null) {
+			scale.setBaseValue(SCALE);
+		}
+		e.noPhysics = true;
+		e.setNoGravity(true);
+	}
+
+	/** A plain vanilla Mannequin (no subclass), created through its own factory. */
+	static Mannequin createPlain(Level level) {
+		try {
+			EntityType<Mannequin> type = mannequinType();
+			for (Method m : Mannequin.class.getDeclaredMethods()) {
+				if (m.getName().equals("create") && m.getParameterCount() == 2
+					&& m.getParameterTypes()[0].isAssignableFrom(EntityType.class)
+					&& m.getParameterTypes()[1].isAssignableFrom(Level.class)) {
+					m.setAccessible(true);
+					Object result = m.invoke(null, type, level);
+					if (result instanceof Mannequin mannequin) {
+						return mannequin;
+					}
+				}
+			}
+		} catch (ReflectiveOperationException | RuntimeException e) {
+			MinifriendsClient.LOGGER.error("Could not create a plain mannequin", e);
+		}
+		return null;
+	}
+
+	private static Method animationMethod;
+	private static Method oldPosMethod;
+
+	static void animate(Entity e) {
+		try {
+			if (animationMethod == null) {
+				animationMethod = findMethod(e.getClass(), "calculateEntityAnimation", boolean.class);
+			}
+			if (animationMethod != null) {
+				animationMethod.invoke(e, false);
+			}
+		} catch (ReflectiveOperationException | RuntimeException ex) {
+			MinifriendsClient.LOGGER.error("Could not update walk animation", ex);
+			animationMethod = null;
+		}
+	}
+
+	static void setOldPosAndRot(Entity e) {
+		try {
+			if (oldPosMethod == null) {
+				oldPosMethod = findMethod(e.getClass(), "setOldPosAndRot");
+			}
+			if (oldPosMethod != null) {
+				oldPosMethod.invoke(e);
+			}
+		} catch (ReflectiveOperationException | RuntimeException ex) {
+			oldPosMethod = null;
+		}
+	}
+
+	private static Method findMethod(Class<?> start, String name, Class<?>... params) {
+		for (Class<?> c = start; c != null; c = c.getSuperclass()) {
+			try {
+				Method m = c.getDeclaredMethod(name, params);
+				m.setAccessible(true);
+				return m;
+			} catch (NoSuchMethodException ignored) {
+				// try the superclass
+			}
+		}
+		return null;
+	}
+
 	// ---- renderer check + diagnostics ------------------------------------------------
 
 	static boolean hasRenderer(Entity entity) {
@@ -137,7 +222,25 @@ final class Compat {
 		log.error("[diag] entity class={} type={} typeClass={}", entity.getClass().getName(),
 			BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()), entity.getType().getClass().getName());
 		Object dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
-		dumpClass(log, dispatcher.getClass());
+		for (String mapName : new String[] {"renderers", "playerRenderers", "mannequinRenderers"}) {
+			try {
+				Field f = dispatcher.getClass().getDeclaredField(mapName);
+				f.setAccessible(true);
+				java.util.Map<?, ?> map = (java.util.Map<?, ?>) f.get(dispatcher);
+				if (mapName.equals("renderers")) {
+					log.error("[diag] renderers size={} containsMannequin={}", map.size(), map.containsKey(entity.getType()));
+				} else {
+					log.error("[diag] {} keys={}", mapName, map.keySet());
+				}
+			} catch (ReflectiveOperationException | RuntimeException ex) {
+				log.error("[diag] could not read {}", mapName);
+			}
+		}
+		for (Method m : dispatcher.getClass().getDeclaredMethods()) {
+			if (m.getName().equals("getRenderer") || m.getName().equals("getAvatarRenderer")) {
+				log.error("[diag] {} params={}", m.getName(), java.util.Arrays.toString(m.getParameterTypes()));
+			}
+		}
 		Class<?> c = entity.getClass();
 		while (c != null && c != Entity.class) {
 			dumpClass(log, c);
