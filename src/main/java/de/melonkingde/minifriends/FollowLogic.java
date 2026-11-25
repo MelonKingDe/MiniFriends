@@ -4,7 +4,9 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.Pose;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.Random;
@@ -22,6 +24,17 @@ public final class FollowLogic {
 	private final Random random = new Random();
 
 	private boolean moving = false;
+
+	// physics / pathing
+	private static final double GRAVITY = 0.08D;
+	private static final double JUMP_SPEED = 0.42D;
+	private double vy = 0.0D;
+	private boolean jumpRequest = false;
+	private int blockedTicks = 0;
+	private int sideTicks = 0;
+	private int sideSign = 1;
+	private int progressTimer = 0;
+	private double progressDist = 0.0D;
 
 	// idle detection
 	private boolean hasLastPos = false;
@@ -46,10 +59,25 @@ public final class FollowLogic {
 
 	public void teleport(LivingEntity e, LocalPlayer player) {
 		double angle = Math.PI * 2.0D * this.slot / Math.max(1, this.total);
-		e.setPos(player.getX() + Math.cos(angle) * (1.2D + this.scale), player.getY(), player.getZ() + Math.sin(angle) * (1.2D + this.scale));
+		double ring = 1.2D + this.scale;
+		double[] radii = {ring, ring * 0.5D, 0.0D};
+		for (double r : radii) {
+			double x = player.getX() + Math.cos(angle) * r;
+			double z = player.getZ() + Math.sin(angle) * r;
+			AABB box = e.getBoundingBox().move(x - e.getX(), player.getY() - e.getY(), z - e.getZ());
+			if (r == 0.0D || e.level().noCollision(box)) {
+				e.setPos(x, player.getY(), z);
+				break;
+			}
+		}
 		Compat.setOldPosAndRot(e);
 		this.moving = false;
 		this.idleTicks = 0;
+		this.vy = 0.0D;
+		this.jumpRequest = false;
+		this.blockedTicks = 0;
+		this.sideTicks = 0;
+		this.progressTimer = 0;
 		this.endEmote(e);
 	}
 
@@ -58,7 +86,7 @@ public final class FollowLogic {
 		double dz = player.getZ() - e.getZ();
 		double distSq = dx * dx + dz * dz;
 
-		if (distSq > 24.0D * 24.0D || Math.abs(player.getY() - e.getY()) > 10.0D) {
+		if (distSq > 24.0D * 24.0D || Math.abs(player.getY() - e.getY()) > 12.0D) {
 			this.teleport(e, player);
 			return;
 		}
@@ -72,25 +100,72 @@ public final class FollowLogic {
 			this.moving = false;
 		}
 
-		double nx = e.getX();
-		double nz = e.getZ();
+		double mx = 0.0D;
+		double mz = 0.0D;
 		float targetYaw = (float) (Mth.atan2(dz, dx) * 180.0D / Math.PI) - 90.0F;
 
 		if (this.moving && dist > 1.0E-4D) {
 			// each friend approaches at a slightly different angle so they spread out
 			double offset = (this.slot - (this.total - 1) / 2.0D) * 0.35D;
 			double heading = Math.atan2(dz, dx) + offset;
+			if (this.sideTicks > 0) {
+				// walk around an obstacle: sidestep for a moment
+				heading += this.sideSign * Math.PI / 2.0D;
+				this.sideTicks--;
+			}
 			double stepLen = Mth.clamp((dist - keep) * 0.25D, 0.08D, 0.32D);
-			nx += Math.cos(heading) * stepLen;
-			nz += Math.sin(heading) * stepLen;
+			mx = Math.cos(heading) * stepLen;
+			mz = Math.sin(heading) * stepLen;
 			targetYaw = (float) (heading * 180.0D / Math.PI) - 90.0F;
 		}
 
-		double dy = player.getY() - e.getY();
-		double ny = Math.abs(dy) < 0.02D ? player.getY() : e.getY() + dy * 0.35D;
+		// gravity + real collision with blocks
+		boolean ground = e.onGround();
+		if (e.isInWater()) {
+			this.vy = 0.06D;
+		} else if (this.jumpRequest && ground) {
+			this.vy = JUMP_SPEED;
+		} else if (ground) {
+			this.vy = -GRAVITY;
+		} else {
+			this.vy = Math.max((this.vy - GRAVITY) * 0.98D, -3.0D);
+		}
+		this.jumpRequest = false;
 
-		e.setPos(nx, ny, nz);
+		e.move(MoverType.SELF, new Vec3(mx, this.vy, mz));
 		e.setDeltaMovement(Vec3.ZERO);
+		if (e.verticalCollision && this.vy > 0.0D) {
+			this.vy = 0.0D;
+		}
+
+		if (this.moving && e.horizontalCollision) {
+			// blocked: jump if standing on the ground, and sidestep if that keeps failing
+			if (e.onGround()) {
+				this.jumpRequest = true;
+			}
+			if (++this.blockedTicks > 8 && this.sideTicks == 0) {
+				this.sideTicks = 18;
+				this.sideSign = -this.sideSign;
+				this.blockedTicks = 0;
+			}
+		} else {
+			this.blockedTicks = 0;
+		}
+
+		// no real progress towards the player for a while (e.g. player is somewhere unreachable): catch up
+		if (this.moving) {
+			if (++this.progressTimer >= 80) {
+				if (dist > this.progressDist - 0.5D) {
+					this.teleport(e, player);
+					return;
+				}
+				this.progressDist = dist;
+				this.progressTimer = 0;
+			}
+		} else {
+			this.progressTimer = 0;
+			this.progressDist = dist;
+		}
 
 		float yaw = Mth.rotLerp(0.35F, e.getYRot(), targetYaw);
 		e.setYRot(yaw);
@@ -148,9 +223,9 @@ public final class FollowLogic {
 				}
 			}
 			case HOP -> {
-				double t = Math.min(1.0D, (double) this.emoteTicks / this.emoteLength);
-				double height = Math.sin(Math.PI * t) * 0.35D * Math.max(0.4D, this.scale + 0.3D);
-				e.setPos(e.getX(), player.getY() + height, e.getZ());
+				if (this.emoteTicks == 1 && e.onGround()) {
+					this.jumpRequest = true;
+				}
 			}
 			case SPIN -> {
 				this.spinYaw += 360.0F / this.emoteLength;

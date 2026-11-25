@@ -143,7 +143,8 @@ final class Compat {
 		if (scaleAttribute != null) {
 			scaleAttribute.setBaseValue(scale);
 		}
-		e.noPhysics = true;
+		// friends have real collision (see FollowLogic); gravity is applied there too
+		e.noPhysics = false;
 		e.setNoGravity(true);
 	}
 
