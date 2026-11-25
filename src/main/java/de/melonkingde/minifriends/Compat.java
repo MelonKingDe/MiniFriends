@@ -121,4 +121,39 @@ final class Compat {
 			MinifriendsClient.LOGGER.error("Could not set the mannequin profile", e);
 		}
 	}
+
+	// ---- renderer check + diagnostics ------------------------------------------------
+
+	static boolean hasRenderer(Entity entity) {
+		try {
+			return Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(entity) != null;
+		} catch (RuntimeException e) {
+			return false;
+		}
+	}
+
+	static void dump(Entity entity) {
+		var log = MinifriendsClient.LOGGER;
+		log.error("[diag] entity class={} type={} typeClass={}", entity.getClass().getName(),
+			BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()), entity.getType().getClass().getName());
+		Object dispatcher = Minecraft.getInstance().getEntityRenderDispatcher();
+		dumpClass(log, dispatcher.getClass());
+		Class<?> c = entity.getClass();
+		while (c != null && c != Entity.class) {
+			dumpClass(log, c);
+			c = c.getSuperclass();
+		}
+	}
+
+	private static void dumpClass(org.slf4j.Logger log, Class<?> c) {
+		log.error("[diag] class {} extends {}", c.getName(), c.getSuperclass() == null ? "-" : c.getSuperclass().getName());
+		for (Field f : c.getDeclaredFields()) {
+			log.error("[diag]   field {} {}", f.getType().getSimpleName(), f.getName());
+		}
+		for (Method m : c.getDeclaredMethods()) {
+			if (!m.isSynthetic()) {
+				log.error("[diag]   method {} {}({})", m.getReturnType().getSimpleName(), m.getName(), m.getParameterCount());
+			}
+		}
+	}
 }

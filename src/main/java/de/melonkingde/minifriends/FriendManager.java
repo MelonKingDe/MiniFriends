@@ -93,6 +93,11 @@ public final class FriendManager {
 			MiniFriend entity = new MiniFriend(lvl, f.name.trim(), f.showNametag, i, valid.size());
 			entity.setId(nextId++);
 			entity.teleportToPlayer(player);
+			if (!Compat.hasRenderer(entity)) {
+				// adding an entity without a renderer would crash the render thread
+				Compat.dump(entity);
+				throw new IllegalStateException("No renderer for Minifriend entity");
+			}
 			lvl.addEntity(entity);
 			ACTIVE.add(entity);
 		}
