@@ -29,7 +29,7 @@ public class MinifriendsScreen extends Screen {
 		int y = Math.max(10, this.height / 2 - totalHeight / 2);
 
 		this.addRenderableWidget(
-			new StringWidget(cx - 100, y, 200, 12, Component.literal("Minifriends"), this.font).alignCenter()
+			new StringWidget(cx - 100, y, 200, 12, Component.literal("Minifriends"), this.font)
 		);
 		y += 18;
 
@@ -90,6 +90,6 @@ public class MinifriendsScreen extends Screen {
 			f.name = f.name.trim();
 		}
 		MinifriendsConfig.save();
-		this.minecraft.setScreen(this.parent);
+		Compat.openScreen(this.minecraft, this.parent);
 	}
 }

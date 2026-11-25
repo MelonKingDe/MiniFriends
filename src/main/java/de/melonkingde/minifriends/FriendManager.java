@@ -28,7 +28,7 @@ public final class FriendManager {
 
 	public static void tick(Minecraft mc) {
 		if (openCountdown > 0 && --openCountdown == 0) {
-			mc.setScreen(new MinifriendsScreen(null));
+			Compat.openScreen(mc, new MinifriendsScreen(null));
 		}
 
 		ClientLevel current = mc.level;

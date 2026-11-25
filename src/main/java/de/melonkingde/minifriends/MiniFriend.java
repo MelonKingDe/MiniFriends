@@ -4,7 +4,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.decoration.Mannequin;
@@ -24,11 +23,11 @@ public class MiniFriend extends Mannequin {
 	private boolean moving = false;
 
 	public MiniFriend(Level level, String name, boolean showNametag, int slot, int total) {
-		super(EntityType.MANNEQUIN, level);
+		super(Compat.mannequinType(), level);
 		this.slot = slot;
 		this.total = total;
 
-		this.setProfile(ResolvableProfile.createUnresolved(name));
+		Compat.setProfile(this, ResolvableProfile.createUnresolved(name));
 		this.setCustomName(Component.literal(name));
 		this.setCustomNameVisible(showNametag);
 
