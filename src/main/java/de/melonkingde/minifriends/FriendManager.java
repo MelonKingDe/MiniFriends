@@ -72,7 +72,7 @@ public final class FriendManager {
 			if (!friend.isRemoved() && !stand.isRemoved()) {
 				Compat.setOldPosAndRot(stand);
 				// the name tag floats 0.5 above the top of the stand's hitbox
-				double y = friend.getY() + 1.8D * activeScale + 0.12D - (stand.getBbHeight() + 0.5D);
+				double y = friend.getY() + 1.8D * activeScale + 0.42D - (stand.getBbHeight() + 0.5D);
 				stand.setPos(friend.getX(), y, friend.getZ());
 			}
 		}

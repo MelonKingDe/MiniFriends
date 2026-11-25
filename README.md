@@ -6,6 +6,7 @@ Client-side Fabric mod for Minecraft 26.2. Mini versions of players follow you a
 
 - Type `/minifriends` in chat to open the settings screen.
 - Enter a player name per row (the skin is loaded from that name), toggle the nametag on/off, add up to 5 friends, and change their size with the slider.
+- When you stand still for 5+ seconds, your friends play small emotes (crouch, wave, hop, spin, look around).
 - Settings are saved to `config/minifriends.json`.
 
 ## Build
