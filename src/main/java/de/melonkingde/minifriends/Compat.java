@@ -2,6 +2,7 @@ package de.melonkingde.minifriends;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
@@ -10,7 +11,6 @@ import net.minecraft.world.entity.decoration.Mannequin;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.Optional;
 
 /**
  * Reflection fallbacks for Minecraft APIs that changed between versions.
@@ -79,21 +79,16 @@ final class Compat {
 
 	@SuppressWarnings("unchecked")
 	static EntityType<Mannequin> mannequinType() {
-		try {
-			for (Field field : EntityType.class.getFields()) {
-				if (Modifier.isStatic(field.getModifiers())
-					&& field.getName().toUpperCase().contains("MANNEQUIN")) {
-					return (EntityType<Mannequin>) field.get(null);
-				}
+		for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+			if (BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath().equals("mannequin")) {
+				return (EntityType<Mannequin>) type;
 			}
-			Method byString = EntityType.class.getMethod("byString", String.class);
-			Object result = byString.invoke(null, "mannequin");
-			if (result instanceof Optional<?> optional && optional.isPresent()) {
-				return (EntityType<Mannequin>) optional.get();
-			}
-		} catch (ReflectiveOperationException e) {
-			MinifriendsClient.LOGGER.error("Could not look up the mannequin entity type", e);
 		}
+		StringBuilder names = new StringBuilder();
+		for (EntityType<?> type : BuiltInRegistries.ENTITY_TYPE) {
+			names.append(BuiltInRegistries.ENTITY_TYPE.getKey(type).getPath()).append(' ');
+		}
+		MinifriendsClient.LOGGER.error("Mannequin entity type not found. Registered types: {}", names);
 		throw new IllegalStateException("Mannequin entity type not found");
 	}
 

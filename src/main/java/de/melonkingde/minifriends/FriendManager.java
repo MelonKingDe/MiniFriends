@@ -56,7 +56,14 @@ public final class FriendManager {
 		}
 
 		if (appliedVersion != MinifriendsConfig.version() || broken) {
-			rebuild(current, player);
+			try {
+				rebuild(current, player);
+			} catch (RuntimeException | LinkageError e) {
+				// never crash the game because of a cosmetic: log once and wait for the next config change
+				MinifriendsClient.LOGGER.error("Could not create Minifriends", e);
+				ACTIVE.clear();
+				appliedVersion = MinifriendsConfig.version();
+			}
 		}
 	}
 
